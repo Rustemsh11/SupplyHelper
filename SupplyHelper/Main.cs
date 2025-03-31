@@ -35,20 +35,15 @@ namespace SupplyHelper
                 StringBuilder properties = new StringBuilder();
                 properties.AppendLine($"Имя элемента: {element.Name}");
                 properties.AppendLine($"ID: {element.Id.IntegerValue}");
-
+                Dictionary<string, string> propValues = new Dictionary<string, string>() { };
                 foreach (Parameter param in element.Parameters)
                 {
-                    if (param.HasValue)
-                    {
-                        string paramName = param.Definition.Name;
-                        string paramValue = param.AsString() ?? param.AsValueString() ?? param.AsInteger().ToString();
-                        properties.AppendLine($"{paramName}: {paramValue}");
-                    }
+                    var value = param.AsString() ?? param.AsValueString() ?? param.AsInteger().ToString() ?? string.Empty;
+                    propValues.Add(param.Definition.Name, value);
                 }
 
-                // Выводим свойства в текстовое поле
-                MessageBox.Show(properties.ToString(), "Свойства элемента", MessageBoxButtons.OK);
-                //txtProperties.Text = properties.ToString();
+                PropertyMapForm propertyMapForm = new PropertyMapForm(propValues);
+                propertyMapForm.ShowDialog();
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException)
             {
