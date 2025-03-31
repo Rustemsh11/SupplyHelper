@@ -35,11 +35,11 @@ namespace SupplyHelper
                 StringBuilder properties = new StringBuilder();
                 properties.AppendLine($"Имя элемента: {element.Name}");
                 properties.AppendLine($"ID: {element.Id.IntegerValue}");
-                Dictionary<string, string> propValues = new Dictionary<string, string>() { };
+                List<(string, string)> propValues = new List<(string, string)>() { };
                 foreach (Parameter param in element.Parameters)
                 {
                     var value = param.AsString() ?? param.AsValueString() ?? param.AsInteger().ToString() ?? string.Empty;
-                    propValues.Add(param.Definition.Name, value);
+                    propValues.Add((param.Definition.Name, value));
                 }
 
                 PropertyMapForm propertyMapForm = new PropertyMapForm(propValues);
