@@ -77,5 +77,16 @@ namespace SupplyHelper
             }
             MessageBox.Show(props.ToString(), "Свойства элемента", MessageBoxButtons.OK);
         }
+
+        private void addNewPropButton_Click(object sender, EventArgs e)
+        {
+            bool isOnlySemName = false;
+            if (string.IsNullOrEmpty(newPropNameTextBox.Text))
+            {
+                isOnlySemName = true;
+            }
+
+
+        }
     }
 }
