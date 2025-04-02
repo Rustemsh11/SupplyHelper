@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -10,11 +12,15 @@ using System.Windows.Forms;
 
 namespace SupplyHelper
 {
-    public partial class PropertyMapForm : Form
+    public partial class PropertyMapForm : System.Windows.Forms.Form
     {
-        public PropertyMapForm(List<(string, string)> semPropValues)
+        private readonly Document document;
+        private readonly Element element;
+        public PropertyMapForm(List<(string, string)> semPropValues, Document document, Element element)
         {
             InitializeComponent();
+            this.document = document;
+            this.element = element;
             foreach (var item in semPropValues)
             {
                 semPropGrid.Rows.Add(item.Item1, item.Item2);
@@ -86,7 +92,57 @@ namespace SupplyHelper
                 isOnlySemName = true;
             }
 
+            SetPatameterWithValue(newPropNameTextBox.Text, newPropValueTextBox.Text);
+        }
 
+        private void SetPatameterWithValue(string paramName, string value)
+        {
+            using (Transaction transaction = new Transaction(document, "Добавить новое свойство"))
+            {
+                transaction.Start();
+                Parameter existingParam = element.LookupParameter(paramName);
+
+                if (existingParam == null)
+                {
+                    FamilyManager familyManager = document.FamilyManager;
+
+                    CategorySet categories = new CategorySet();
+                    categories.Insert(element.Category);
+
+                    ExternalDefinition externalDefinition = CreateNewParameter(document, paramName);
+
+                    if(externalDefinition != null)
+                    {
+                        var paramId = element.GetTypeId();
+                        familyManager.AddParameter(externalDefinition, BuiltInParameterGroup.PG_TEXT, false);
+                        element.LookupParameter(paramName).Set(value);
+                    }
+                }
+
+                transaction.Commit();
+            }
+        }
+
+        private ExternalDefinition CreateNewParameter(Document doc, string paramName)
+        {
+            // Открываем файл общих параметров
+            DefinitionFile sharedParameterFile = doc.Application.OpenSharedParameterFile();
+            if (sharedParameterFile == null)
+            {
+                MessageBox.Show("Ошибка", "Не найден файл общих параметров.");
+                return null;
+            }
+
+            // Определяем группу и создаем новый параметр
+            DefinitionGroup defGroup = sharedParameterFile.Groups.get_Item("Имя_группы");
+            if (defGroup == null)
+            {
+                MessageBox.Show("Ошибка", "Не найдена указанная группа для параметра.");
+                return null;
+            }
+
+            ExternalDefinition externalDef = defGroup.Definitions.Create(new ExternalDefinitionCreationOptions(paramName, ParameterType.Text)) as ExternalDefinition;
+            return externalDef;
         }
     }
 }

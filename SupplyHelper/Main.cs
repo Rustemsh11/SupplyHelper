@@ -42,7 +42,7 @@ namespace SupplyHelper
                     propValues.Add((param.Definition.Name, value));
                 }
 
-                PropertyMapForm propertyMapForm = new PropertyMapForm(propValues);
+                PropertyMapForm propertyMapForm = new PropertyMapForm(propValues, _uiDoc.Document, element);
                 propertyMapForm.ShowDialog();
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException)
