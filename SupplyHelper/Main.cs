@@ -20,7 +20,7 @@ namespace SupplyHelper
             InitializeComponent();
         }
         public Element element { get; set; }
-        public UIDocument _uiDoc;
+        public Document document;
         private void button1_Click(object sender, EventArgs e)
         {
             try
@@ -41,8 +41,8 @@ namespace SupplyHelper
                     var value = param.AsString() ?? param.AsValueString() ?? param.AsInteger().ToString() ?? string.Empty;
                     propValues.Add((param.Definition.Name, value));
                 }
-
-                PropertyMapForm propertyMapForm = new PropertyMapForm(propValues, _uiDoc.Document, element);
+                
+                PropertyMapForm propertyMapForm = new PropertyMapForm(propValues, document, element);
                 propertyMapForm.ShowDialog();
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException)
@@ -51,7 +51,7 @@ namespace SupplyHelper
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Ошибка: {ex.Message} {ex.InnerException} {ex.StackTrace}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             //// Получаем активный документ
             //UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -84,6 +84,12 @@ namespace SupplyHelper
             //// Создаем окно для отображения свойств
             //MessageBox.Show(properties.ToString(), "Свойства элемента", MessageBoxButtons.OK);
 
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            InitConnectForm initConnectForm = new InitConnectForm();
+            initConnectForm.ShowDialog();
         }
     }
 }

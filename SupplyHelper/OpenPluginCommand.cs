@@ -22,6 +22,7 @@ namespace SupplyHelper
             Element element = doc.GetElement(pickedRef.ElementId);
             Main window = new Main();
             window.element = element;
+            window.document = doc;
             window.ShowDialog();
 
             return Result.Succeeded;

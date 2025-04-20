@@ -6,7 +6,9 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -24,6 +26,35 @@ namespace SupplyHelper
             foreach (var item in semPropValues)
             {
                 semPropGrid.Rows.Add(item.Item1, item.Item2);
+            }
+            var sharedParamFile = document.Application.OpenSharedParameterFile();
+            MessageBox.Show(sharedParamFile.Groups.Count().ToString());
+            sharedObjectNames.DataSource = sharedParamFile.Groups.Select(c => c.Name).ToList();
+            var res = HttpRequester.GetData("https://localhost:7041/Pipe/ReguestInfo").ConfigureAwait(false).GetAwaiter().GetResult();
+            var requestInfo = JsonSerializer.Deserialize<RequestInfoDto>(res);
+            neededPropGrid.Rows.Add("Категория", requestInfo.CategoryNames);
+            neededPropGrid.Rows.Add("Гост", requestInfo.GostNames);
+            neededPropGrid.Rows.Add("Наименование", requestInfo.PipeName);
+            neededPropGrid.Rows.Add("SDR", requestInfo.SDR);
+            neededPropGrid.Rows.Add("Толщина", requestInfo.Thickness);
+            neededPropGrid.Rows.Add("Диаметр", requestInfo.Diametr);
+            ChangeToComboBox(neededPropGrid, 0, requestInfo.CategoryNames);
+            ChangeToComboBox(neededPropGrid, 1, requestInfo.GostNames);
+        }
+
+        private void ChangeToComboBox(DataGridView dataGridView, int rowIndex, List<string> items)
+        {
+            // Проверяем, чтобы ячейка была в нужной строке
+            if (rowIndex >= 0 && rowIndex < dataGridView.Rows.Count)
+            {
+                // Создаём новый DataGridViewComboBoxCell для этой строки
+                DataGridViewComboBoxCell comboCell = new DataGridViewComboBoxCell();
+
+                // Добавляем значения в ComboBox
+                comboCell.DataSource = items;
+                comboCell.Value = items.FirstOrDefault();
+                // Заменяем ячейку в нужной строке на ComboBox
+                dataGridView.Rows[rowIndex].Cells["dataGridViewTextBoxColumn2"] = comboCell;
             }
         }
 
@@ -76,12 +107,13 @@ namespace SupplyHelper
 
         private void button5_Click(object sender, EventArgs e)
         {
-            StringBuilder props = new StringBuilder();
-            foreach (var item in choosenPropsList.Items)
+            var httpRequest = new HttpRequestMessage()
             {
-                props.AppendLine(item.ToString());
+                RequestUri = new Uri("https://localhost:7041/Pipe/GetApplicablePipes"),
+                Method = HttpMethod.Get,
+                Content = 
             }
-            MessageBox.Show(props.ToString(), "Свойства элемента", MessageBoxButtons.OK);
+            HttpRequester
         }
 
         private void addNewPropButton_Click(object sender, EventArgs e)
@@ -92,35 +124,147 @@ namespace SupplyHelper
                 isOnlySemName = true;
             }
 
-            SetPatameterWithValue(newPropNameTextBox.Text, newPropValueTextBox.Text);
+            using (Transaction tx = new Transaction(this.document, "Добавить параметр"))
+            {
+                tx.Start();
+
+                // Добавляем параметр к выбранному элементу
+                AddSharedParameter(document, element, sharedObjectNames.Text, newPropNameTextBox.Text, newPropValueTextBox.Text);
+                
+                tx.Commit();
+            }
+
         }
 
         private void SetPatameterWithValue(string paramName, string value)
         {
-            using (Transaction transaction = new Transaction(document, "Добавить новое свойство"))
+            using (Transaction trans = new Transaction(document, "Добавить параметр"))
             {
-                transaction.Start();
-                Parameter existingParam = element.LookupParameter(paramName);
+                trans.Start();
 
-                if (existingParam == null)
+                // Проверим, существует ли уже общий параметр с данным именем
+                DefinitionFile sharedParamFile = document.Application.OpenSharedParameterFile();
+                if (sharedParamFile == null)
                 {
-                    FamilyManager familyManager = document.FamilyManager;
-
-                    CategorySet categories = new CategorySet();
-                    categories.Insert(element.Category);
-
-                    ExternalDefinition externalDefinition = CreateNewParameter(document, paramName);
-
-                    if(externalDefinition != null)
-                    {
-                        var paramId = element.GetTypeId();
-                        familyManager.AddParameter(externalDefinition, BuiltInParameterGroup.PG_TEXT, false);
-                        element.LookupParameter(paramName).Set(value);
-                    }
+                    MessageBox.Show("Ошибка", "Не найден файл общих параметров.");
                 }
 
-                transaction.Commit();
+                // Определение параметра
+                ExternalDefinition externalDef = GetExternalDefinition(sharedParamFile, sharedObjectNames.SelectedText);
+                if (externalDef == null)
+                {
+                    TaskDialog.Show("Ошибка", "Не удалось найти параметр в файле общих параметров.");
+                }
+
+                // Добавляем параметр ко всем элементам
+                AddSharedParameterToAllElements(document, externalDef, paramName);
+
+                trans.Commit();
             }
+        }
+
+
+        // Функция для добавления нового параметра
+
+        private void AddSharedParameter(Document doc, Element element, string groupName, string paramName, string paramValue)
+        {
+            // Получаем файл общих данных
+            DefinitionFile definitionFile = doc.Application.OpenSharedParameterFile();
+
+            if (definitionFile == null)
+            {
+                TaskDialog.Show("Ошибка", "Не найден файл общих данных.");
+                return;
+            }
+
+            // Проверяем, существует ли параметр с таким именем
+            DefinitionGroup definitionGroup = definitionFile.Groups.FirstOrDefault(g => g.Name == groupName);
+            MessageBox.Show(groupName);
+            if (definitionGroup == null)
+            {
+                definitionGroup = definitionFile.Groups.Create(groupName);
+            }
+
+            // Проверяем, есть ли уже параметр с таким именем
+            ExternalDefinition externalDefinition = definitionGroup.Definitions.Cast<ExternalDefinition>()
+                .FirstOrDefault(def => def.Name == paramName);
+
+            if (externalDefinition == null)
+            {
+                // Создаем новый внешний параметр
+                ExternalDefinitionCreationOptions options = new ExternalDefinitionCreationOptions(paramName, ParameterType.Text);
+                externalDefinition = definitionGroup.Definitions.Create(options) as ExternalDefinition;
+            }
+
+            // Привязываем параметр к элементу
+            BindingMap bindingMap = doc.ParameterBindings;
+            Category category = element.Category;
+
+            CategorySet categorySet = doc.Application.Create.NewCategorySet();
+            categorySet.Insert(category);
+
+            // Создаем привязку
+            if (externalDefinition != null)
+            {
+                InstanceBinding binding = new InstanceBinding(categorySet);
+                bindingMap.Insert(externalDefinition, binding);
+
+                // Устанавливаем значение параметра
+                Parameter parameter = element.LookupParameter(paramName);
+                if (parameter != null)
+                {
+                    parameter.Set(paramValue);
+                }
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+        private ExternalDefinition GetExternalDefinition(DefinitionFile sharedParamFile, string sharedParamName)
+        {
+            foreach (DefinitionGroup defGroup in sharedParamFile.Groups)
+            {
+               
+                    if (defGroup.Name == sharedParamName)
+                    {
+                       // return def as ExternalDefinition;
+                    }
+                
+            }
+
+            return null;
+        }
+
+        private void AddSharedParameterToAllElements(Document doc, ExternalDefinition externalDef, string paramValue)
+        {
+            // Создаем CategorySet для добавления параметра ко всем категориям
+            CategorySet categories = doc.Application.Create.NewCategorySet();
+            categories.Insert(element.Category); // Пример категории, можно добавить все
+
+            // Добавляем параметр в проект
+            AddSharedParameterToProject(doc, externalDef, categories);
+
+            // Перебираем все элементы и добавляем параметр с заданным значением
+                Parameter param = element.LookupParameter(externalDef.Name);
+                if (param != null)
+                {
+                    // Устанавливаем значение параметра
+                    param.Set(paramValue);
+                }
+        }
+
+        private void AddSharedParameterToProject(Document doc, ExternalDefinition externalDef, CategorySet categories)
+        {
+            BindingMap bindings = doc.ParameterBindings;
+            Autodesk.Revit.DB.Binding binding = doc.Application.Create.NewInstanceBinding(categories);
+            bindings.Insert(externalDef, binding, BuiltInParameterGroup.PG_TEXT);
         }
 
         private ExternalDefinition CreateNewParameter(Document doc, string paramName)
