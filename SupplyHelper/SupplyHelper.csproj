@@ -91,6 +91,7 @@
     <Compile Include="InitConnectForm.Designer.cs">
       <DependentUpon>InitConnectForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="NeededPipeRequestData.cs" />
     <Compile Include="OpenPluginCommand.cs" />
     <Compile Include="Main.cs">
       <SubType>Form</SubType>

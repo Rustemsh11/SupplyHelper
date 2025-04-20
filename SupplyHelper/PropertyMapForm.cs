@@ -107,13 +107,29 @@ namespace SupplyHelper
 
         private void button5_Click(object sender, EventArgs e)
         {
+
+            var content = new NeededPipeRequestData()
+            {
+                CategoryName = neededPropGrid.Rows[0].Cells[1].Value.ToString(),
+                GostName = neededPropGrid.Rows[1].Cells[1].Value.ToString(),
+                PipeName = neededPropGrid.Rows[2].Cells[1].Value.ToString(),
+                SDR = Convert.ToDouble(neededPropGrid.Rows[3].Cells[1].Value),
+                Thickness = Convert.ToDouble(neededPropGrid.Rows[4].Cells[1].Value),
+                Diametr = Convert.ToDouble(neededPropGrid.Rows[5].Cells[1].Value),
+            };
+
+            var json = JsonSerializer.Serialize(requestData);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
             var httpRequest = new HttpRequestMessage()
             {
-                RequestUri = new Uri("https://localhost:7041/Pipe/GetApplicablePipes"),
                 Method = HttpMethod.Get,
-                Content = 
-            }
-            HttpRequester
+                RequestUri = new Uri("https://localhost:7041/Pipe/GetApplicablePipes"),
+                Content = content
+            };
+            var d = HttpRequester.SendRequest(httpRequest).ConfigureAwait(false).GetAwaiter().GetResult();
+
+            MessageBox.Show(d);
         }
 
         private void addNewPropButton_Click(object sender, EventArgs e)
